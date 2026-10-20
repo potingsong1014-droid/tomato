@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>番茄任務 Pomodoro Quest</title>
+<style>
+:root{--bg:#e9f0e2;--card:#f9fbf6;--ink:#1f3a2b;--mute:#5f7566;--tomato:#d9402b;--leaf:#3f7a52;--line:#cfdcc8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:12px;margin-bottom:18px}
+h1{margin:0;font-size:1.7rem;letter-spacing:.02em}
+h2{margin:0 0 12px;font-size:1.05rem}
+.stats{display:flex;gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 14px;text-align:center}
+.stat b{display:block;font-size:1.3rem;color:var(--tomato)}
+.stat span{font-size:.78rem;color:var(--mute)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:12px}
+.tab{border:1px solid var(--line);background:none;border-radius:999px;padding:5px 14px;cursor:pointer;color:var(--ink);font:inherit}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.dial{position:relative;width:240px;height:240px;margin:6px auto}
+.dial svg{transform:rotate(-90deg)}
+.dial .t{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.time{font-size:3.2rem;font-weight:700;font-variant-numeric:tabular-nums}
+.cur{font-size:.88rem;color:var(--mute);max-width:170px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctrl{display:flex;gap:8px;justify-content:center;margin-top:10px;align-items:center;flex-wrap:wrap}
+button{font:inherit}
+.btn{border:0;border-radius:10px;padding:8px 20px;cursor:pointer;background:var(--tomato);color:#fff;font-weight:600}
+.btn.alt{background:none;border:1px solid var(--line);color:var(--ink);font-weight:400}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--leaf);outline-offset:2px}
+select{font:inherit;border:1px solid var(--line);border-radius:8px;padding:5px;background:#fff}
+.add{display:flex;gap:6px;margin-bottom:12px}
+.add input[type=text]{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit}
+ul{list-style:none;margin:0;padding:0}
+li.task{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid transparent;border-radius:10px;cursor:pointer}
+li.task:hover{background:#eef4e8}
+li.task.active{border-color:var(--tomato);background:#fdf0ec}
+li.task.done .tx{text-decoration:line-through;color:var(--mute)}
+.tx{flex:1;word-break:break-word}
+.pm{font-size:.85rem;color:var(--tomato);white-space:nowrap}
+.x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:1.1rem}
+.empty{color:var(--mute);font-size:.92rem;padding:8px}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.badge{border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center;filter:grayscale(1);opacity:.5}
+.badge.on{filter:none;opacity:1;border-color:var(--leaf);background:#f1f8ec}
+.badge i{font-style:normal;font-size:1.8rem;display:block}
+.badge small{color:var(--mute)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:12px;transition:transform .3s;z-index:9;max-width:90vw}
+#toast.show{transform:translateX(-50%) translateY(0)}
+@media(prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🍅 番茄任務</h1>
+    <div class="stats">
+      <div class="stat"><b id="sToday">0</b><span>今日番茄</span></div>
+      <div class="stat"><b id="sMin">0</b><span>累計專注分鐘</span></div>
+      <div class="stat"><b id="sStreak">0</b><span>連續天數</span></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card" aria-label="番茄鐘">
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-m="focus">專注</button>
+        <button class="tab" data-m="short">短休息</button>
+        <button class="tab" data-m="long">長休息</button>
+      </div>
+      <div class="dial">
+        <svg width="240" height="240" viewBox="0 0 200 200" aria-hidden="true">
+          <circle cx="100" cy="100" r="90" fill="none" stroke="#dbe6d3" stroke-width="12"/>
+          <circle id="ring" cx="100" cy="100" r="90" fill="none" stroke="#d9402b" stroke-width="12" stroke-linecap="round" stroke-dasharray="565.5" stroke-dashoffset="0"/>
+        </svg>
+        <div class="t"><div class="time" id="time" role="timer">25:00</div><div class="cur" id="cur">尚未選擇任務</div></div>
+      </div>
+      <div class="ctrl">
+        <button class="btn" id="go">開始</button>
+        <button class="btn alt" id="reset">重置</button>
+        <label>專注長度 <select id="len"><option value="15">15 分</option><option value="25">25 分</option><option value="45">45 分</option><option value="50">50 分</option></select></label>
+      </div>
+    </section>
+
+    <section class="card" aria-label="待辦清單">
+      <h2>待辦清單</h2>
+      <form class="add" id="form">
+        <input type="text" id="txt" placeholder="新增任務，例如：寫報告第二段" maxlength="60" aria-label="任務名稱">
+        <select id="est" aria-label="預估番茄數"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+        <button class="btn" type="submit">新增</button>
+      </form>
+      <ul id="list"></ul>
+      <p class="empty" id="hint">點選任務可設為「專注中」，勾選方塊代表完成。</p>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px" aria-label="成就">
+    <h2>成就徽章（<span id="bc">0</span>/<span id="bt">0</span>）</h2>
+    <div class="badges" id="badges"></div>
+  </section>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const KEY='pomodoroQuest.v1';
+const dayKey=d=>d.toLocaleDateString('sv');
+let S={tasks:[],active:null,total:0,minutes:0,daily:{},unlocked:[],doneCount:0,focusMin:25,cyc:0};
+try{Object.assign(S,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+
+const BREAK={short:5,long:15};
+let mode='focus',left=S.focusMin*60,endAt=null,timer=null;
+const mins=m=>m==='focus'?S.focusMin:BREAK[m];
+const todayCount=()=>S.daily[dayKey(new Date())]||0;
+function streak(){let n=0,d=new Date();if(!S.daily[dayKey(d)])d.setDate(d.getDate()-1);
+  while(S.daily[dayKey(d)]){n++;d.setDate(d.getDate()-1)}return n}
+
+const BADGES=[
+ {id:'first',i:'🌱',n:'初次專注',d:'完成第 1 顆番茄',t:()=>S.total>=1},
+ {id:'three',i:'🍅',n:'一日三顆',d:'一天完成 3 顆番茄',t:()=>todayCount()>=3},
+ {id:'ten',i:'🔥',n:'十顆達人',d:'累計 10 顆番茄',t:()=>S.total>=10},
+ {id:'clear',i:'✅',n:'清單清空',d:'累計完成 5 個任務',t:()=>S.doneCount>=5},
+ {id:'streak',i:'📅',n:'連續三天',d:'連續 3 天有專注',t:()=>streak()>=3},
+ {id:'hour',i:'⏱️',n:'專注十小時',d:'累計專注 600 分鐘',t:()=>S.minutes>=600}
+];
+
+let tt;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3200)}
+function beep(){try{const c=new(window.AudioContext||window.webkitAudioContext)();
+  [0,.25,.5].forEach(o=>{const s=c.createOscillator(),g=c.createGain();s.frequency.value=880;s.connect(g);g.connect(c.destination);
+  g.gain.setValueAtTime(.2,c.currentTime+o);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+o+.2);s.start(c.currentTime+o);s.stop(c.currentTime+o+.2)})}catch(e){}}
+
+function check(){BADGES.forEach(b=>{if(!S.unlocked.includes(b.id)&&b.t()){S.unlocked.push(b.id);toast(b.i+' 解鎖成就：'+b.n)}});save();renderBadges()}
+
+function renderTimer(){
+  const m=Math.floor(left/60),s=left%60,txt=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  $('#time').textContent=txt;document.title=(endAt?txt+' · ':'')+'番茄任務';
+  $('#ring').style.strokeDashoffset=565.5*(1-left/(mins(mode)*60));
+  $('#go').textContent=endAt?'暫停':'開始';
+  const a=S.tasks.find(t=>t.id===S.active);
+  $('#cur').textContent=mode==='focus'?(a?'專注中：'+a.text:'尚未選擇任務'):'好好休息一下';
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.m===mode));
+}
+function renderStats(){$('#sToday').textContent=todayCount();$('#sMin').textContent=S.minutes;$('#sStreak').textContent=streak()}
+function renderBadges(){const box=$('#badges');box.innerHTML='';
+  BADGES.forEach(b=>{const e=document.createElement('div');e.className='badge'+(S.unlocked.includes(b.id)?' on':'');
+    e.innerHTML='<i>'+b.i+'</i><b>'+b.n+'</b><br><small>'+b.d+'</small>';box.appendChild(e)});
+  $('#bc').textContent=S.unlocked.length;$('#bt').textContent=BADGES.length}
+function renderTasks(){const ul=$('#list');ul.innerHTML='';
+  S.tasks.forEach(t=>{const li=document.createElement('li');li.className='task'+(t.done?' done':'')+(t.id===S.active?' active':'');
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=t.done;cb.setAttribute('aria-label','完成 '+t.text);
+    cb.onclick=e=>{e.stopPropagation();t.done=cb.checked;if(t.done){S.doneCount++;if(S.active===t.id)S.active=null}check();renderAll()};
+    const tx=document.createElement('span');tx.className='tx';tx.textContent=t.text;
+    const pm=document.createElement('span');pm.className='pm';pm.textContent='🍅 '+t.got+'/'+t.est;
+    const x=document.createElement('button');x.className='x';x.textContent='✕';x.setAttribute('aria-label','刪除 '+t.text);
+    x.onclick=e=>{e.stopPropagation();S.tasks=S.tasks.filter(k=>k.id!==t.id);if(S.active===t.id)S.active=null;save();renderAll()};
+    li.onclick=()=>{if(t.done)return;S.active=S.active===t.id?null:t.id;save();renderAll()};
+    li.append(cb,tx,pm,x);ul.appendChild(li)});
+  $('#hint').style.display=S.tasks.length?'none':'block';
+  if(!S.tasks.length)$('#hint').textContent='還沒有任務，先在上方新增一個吧。'}
+function renderAll(){renderTimer();renderTasks();renderStats();renderBadges()}
+
+function setMode(m){clearInterval(timer);endAt=null;mode=m;left=mins(m)*60;renderTimer()}
+function tick(){left=Math.max(0,Math.ceil((endAt-Date.now())/1000));renderTimer();if(left<=0)finish()}
+function finish(){clearInterval(timer);endAt=null;beep();let next='focus';
+  if(mode==='focus'){S.total++;S.minutes+=S.focusMin;const k=dayKey(new Date());S.daily[k]=(S.daily[k]||0)+1;
+    const a=S.tasks.find(t=>t.id===S.active);if(a)a.got++;S.cyc++;next=S.cyc%4===0?'long':'short';
+    toast('🍅 完成一顆番茄！休息一下吧')}else toast('休息結束，準備再專注');
+  setMode(next);save();check();renderAll()}
+
+$('#go').onclick=()=>{
+  if(endAt){left=Math.ceil((endAt-Date.now())/1000);clearInterval(timer);endAt=null}
+  else{if(mode==='focus'&&!S.active&&S.tasks.some(t=>!t.done))toast('提示：先點選一個任務，番茄才會記到它身上');
+    endAt=Date.now()+left*1000;timer=setInterval(tick,250)}
+  renderTimer()};
+$('#reset').onclick=()=>setMode(mode);
+$('#tabs').onclick=e=>{const m=e.target.dataset.m;if(m)setMode(m)};
+$('#len').value=S.focusMin;
+$('#len').onchange=e=>{S.focusMin=+e.target.value;save();if(mode==='focus')setMode('focus')};
+$('#form').onsubmit=e=>{e.preventDefault();const v=$('#txt').value.trim();if(!v){toast('請先輸入任務名稱');return}
+  S.tasks.push({id:Date.now(),text:v,est:+$('#est').value,got:0,done:false});$('#txt').value='';save();renderAll()};
+renderAll();
+</script>
+</body>
+</html>
